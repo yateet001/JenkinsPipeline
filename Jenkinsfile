@@ -30,7 +30,7 @@ pipeline {
 
     stage('Prep PowerShell') {
       steps {
-        powershell(pwsh: true, script: '''
+        powershell(script: '''
           $ErrorActionPreference = "Stop"
           # Avoid TLS issues when hitting GitHub/PSGallery on older hosts:
           try { [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 } catch {}
@@ -47,7 +47,7 @@ pipeline {
 
     stage('Publish PBIP to Fabric') {
       steps {
-        powershell(pwsh: true, script: '''
+        powershell(script: '''
           $ErrorActionPreference = "Stop"
 
           # -------- Load config + pick environment --------

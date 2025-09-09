@@ -60,7 +60,9 @@ pipeline {
 
           # -------- Load config + pick environment --------
           $configPath = "$env:CONFIG_FILE"
-          if (!(Test-Path $configPath)) { Write-Error "❌ Config file not found at $configPath"; exit 1 }
+          if (!(Test-Path $configPath)) {
+           Write-Error "❌ Config file not found at $configPath"; exit 1
+          }
           $config = Get-Content $configPath | ConvertFrom-Json
 
           $environment = "${env:ENVIRONMENT}"
@@ -71,17 +73,23 @@ pipeline {
             $WorkspaceName = "Dev"
             $ServerName    = $config.DevWarehouseConnection
             $DatabaseName  = $config.DevWarehouseName
-          } elseif ($environment -eq "Prod") {
+          }
+          elseif ($environment -eq "Prod") {
             $WorkspaceId   = $config.ProdWorkspaceID
             $WorkspaceName = "Prod"
             $ServerName    = $config.ProdWarehouseConnection
             $DatabaseName  = $config.ProdWarehouseName
-          } else {
+          } 
+          else {
             Write-Error "❌ Invalid environment selected: $environment"; exit 1
           }
 
-          if ([string]::IsNullOrWhiteSpace($ServerName)) { Write-Error "❌ Server name is empty for $environment"; exit 1 }
-          if ([string]::IsNullOrWhiteSpace($DatabaseName)) { Write-Error "❌ Database name is empty for $environment"; exit 1 }
+          if ([string]::IsNullOrWhiteSpace($ServerName)) { 
+          Write-Error "❌ Server name is empty for $environment"; exit 1 
+          }
+          if ([string]::IsNullOrWhiteSpace($DatabaseName)) { 
+          Write-Error "❌ Database name is empty for $environment"; exit 1 
+          }
 
           # -------- Common values --------
           $TenantId     = $config.TenantID
@@ -124,7 +132,9 @@ pipeline {
           try {
               Write-Host "🔄 Updating semantic model data source connection..."
               $modelPath = Join-Path $semanticModelPath "model.bim"
-              if (!(Test-Path $modelPath)) { throw "model.bim not found at $modelPath" }
+              if (!(Test-Path $modelPath)) { 
+              throw "model.bim not found at $modelPath" 
+              }
 
               $modelJson = (Get-Content -Path $modelPath -Raw) | ConvertFrom-Json
               $sqlPattern = 'Sql\\.Database\\s*\\(\\s*"[^"]*"\\s*,\\s*"[^"]*"[^)]*\\)'
@@ -145,7 +155,8 @@ pipeline {
                                           $newExpression += ($line -replace $sqlPattern, $replacement)
                                           $hasChanges = $true
                                           Write-Host "📝 Updated '$($table.name)' / '$($partition.name)'"
-                                      } else {
+                                      } 
+                                      else {
                                           $newExpression += $line
                                       }
                                   }
@@ -155,7 +166,8 @@ pipeline {
                                       $updatesApplied++ 
                                   }
 
-                              } elseif ($partition.source.expression -is [string]) {
+                              } 
+                              elseif ($partition.source.expression -is [string]) {
                                   if ($partition.source.expression -match $sqlPattern) {
                                       $partition.source.expression = $partition.source.expression -replace $sqlPattern, $replacement
                                       $updatesApplied++
@@ -170,7 +182,8 @@ pipeline {
               if ($updatesApplied -gt 0) {
                   $modelJson | ConvertTo-Json -Depth 100 | Set-Content -Path $modelPath -Encoding UTF8
                   Write-Host "✅ Connection switched in $updatesApplied partition(s) to $DatabaseName ($ServerName)"
-              } else {
+              } 
+              else {
                   Write-Host "⚠️ No SQL Database connections found to update."
               }
           }
@@ -184,7 +197,8 @@ pipeline {
           try {
             $semanticModelImport = Import-FabricItem -workspaceId $WorkspaceId -path $semanticModelPath -ErrorAction Stop
             Write-Host "✅ Semantic model import successful. ID: $($semanticModelImport.Id)"
-          } catch {
+          } 
+          catch {
             Write-Error "❌ Semantic model import failed: $($_.Exception.Message)"; exit 1
           }
 

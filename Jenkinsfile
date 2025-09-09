@@ -122,53 +122,62 @@ pipeline {
 
           # -------- Switch connection strings in model.bim --------
           try {
-            Write-Host "🔄 Updating semantic model data source connection..."
-            $modelPath = Join-Path $semanticModelPath "model.bim"
-            if (!(Test-Path $modelPath)) { throw "model.bim not found at $modelPath" }
+              Write-Host "🔄 Updating semantic model data source connection..."
+              $modelPath = Join-Path $semanticModelPath "model.bim"
+              if (!(Test-Path $modelPath)) { throw "model.bim not found at $modelPath" }
 
-            $modelJson = (Get-Content -Path $modelPath -Raw) | ConvertFrom-Json
-            $sqlPattern = 'Sql\\.Database\\s*\\(\\s*"[^"]*"\\s*,\\s*"[^"]*"[^)]*\\)'
-            $replacement = 'Sql.Database("' + $ServerName + '", "' + $DatabaseName + '")'
-            $updatesApplied = 0
+              $modelJson = (Get-Content -Path $modelPath -Raw) | ConvertFrom-Json
+              $sqlPattern = 'Sql\.Database\s*\(\s*"[^"]*"\s*,\s*"[^"]*"[^)]*\)'
+              $replacement = 'Sql.Database("' + $ServerName + '", "' + $DatabaseName + '")'
+              $updatesApplied = 0
 
-            foreach ($table in $modelJson.model.tables) {
-              if ($table.partitions) {
-                foreach ($partition in $table.partitions) {
-                  if ($partition.source -and $partition.source.type -eq 'm' -and $partition.source.expression) {
-                    if ($partition.source.expression -is [System.Array]) {
-                      $newExpression = @()
-                      $hasChanges = $false
-                      foreach ($line in $partition.source.expression) {
-                        if ($line -match $sqlPattern) {
-                          $newExpression += ($line -replace $sqlPattern, $replacement)
-                          $hasChanges = $true
-                          Write-Host "📝 Updated '$($table.name)' / '$($partition.name)'"
-                        } else {
-                         $newExpression += $line 
-                        }
+              foreach ($table in $modelJson.model.tables) {
+                  if ($table.partitions) {
+                      foreach ($partition in $table.partitions) {
+                          if ($partition.source -and $partition.source.type -eq 'm' -and $partition.source.expression) {
+                              
+                              if ($partition.source.expression -is [System.Array]) {
+                                  $newExpression = @()
+                                  $hasChanges = $false
+
+                                  foreach ($line in $partition.source.expression) {
+                                      if ($line -match $sqlPattern) {
+                                          $newExpression += ($line -replace $sqlPattern, $replacement)
+                                          $hasChanges = $true
+                                          Write-Host "📝 Updated '$($table.name)' / '$($partition.name)'"
+                                      } else {
+                                          $newExpression += $line
+                                      }
+                                  }
+
+                                  if ($hasChanges) { 
+                                      $partition.source.expression = $newExpression
+                                      $updatesApplied++ 
+                                  }
+
+                              } elseif ($partition.source.expression -is [string]) {
+                                  if ($partition.source.expression -match $sqlPattern) {
+                                      $partition.source.expression = $partition.source.expression -replace $sqlPattern, $replacement
+                                      $updatesApplied++
+                                      Write-Host "📝 Updated '$($table.name)' / '$($partition.name)'"
+                                  }
+                              }
+                          }
                       }
-                      if ($hasChanges) { $partition.source.expression = $newExpression; $updatesApplied++ }
-                    } elseif ($partition.source.expression -is [string]) {
-                      if ($partition.source.expression -match $sqlPattern) {
-                        $partition.source.expression = $partition.source.expression -replace $sqlPattern, $replacement
-                        $updatesApplied++
-                        Write-Host "📝 Updated '$($table.name)' / '$($partition.name)'"
-                      }
-                    }
                   }
-                }
               }
-            }
 
-            if ($updatesApplied -gt 0) {
-              $modelJson | ConvertTo-Json -Depth 100 | Set-Content -Path $modelPath -Encoding UTF8
-              Write-Host "✅ Connection switched in $updatesApplied partition(s) to $DatabaseName ($ServerName)"
-            } else {
-              Write-Host "⚠️ No SQL Database connections found to update."
-            }
-          } catch {
-            Write-Error "Failed to update semantic model connection: $_"; exit 1
+              if ($updatesApplied -gt 0) {
+                  $modelJson | ConvertTo-Json -Depth 100 | Set-Content -Path $modelPath -Encoding UTF8
+                  Write-Host "✅ Connection switched in $updatesApplied partition(s) to $DatabaseName ($ServerName)"
+              } else {
+                  Write-Host "⚠️ No SQL Database connections found to update."
+              }
           }
+          catch {
+              Write-Error "Failed to update semantic model connection: $_"; exit 1
+          }
+
 
           # -------- Import Semantic Model --------
           Write-Host "📦 Importing Semantic Model..."
@@ -219,13 +228,27 @@ pipeline {
           # -------- Optional: test refresh --------
           Write-Host "🧪 Testing data connection..."
           try {
-            $refreshUrl = "https://api.powerbi.com/v1.0/myorg/groups/$WorkspaceId/datasets/$($semanticModelImport.Id)/refreshes"
-            $refreshPayload = @{ type = "full"; commitMode = "transactional"; maxParallelism = 2; retryCount = 2 } | ConvertTo-Json
-            $refreshResponse = Invoke-RestMethod -Uri $refreshUrl -Headers $headers -Method Post -Body $refreshPayload -ErrorAction Stop
-            Write-Host "✅ Data refresh initiated. Refresh ID: $($refreshResponse.requestId)"
-          } catch {
-            Write-Host "ℹ️ Could not initiate test refresh: $($_.Exception.Message)"
+              $refreshUrl = "https://api.powerbi.com/v1.0/myorg/groups/$WorkspaceId/datasets/$($semanticModelImport.Id)/refreshes"
+              $refreshPayload = @{ 
+                  type          = "full"
+                  commitMode    = "transactional"
+                  maxParallelism = 2
+                  retryCount     = 2 
+              } | ConvertTo-Json
+
+              $refreshResponse = Invoke-RestMethod `
+                  -Uri $refreshUrl `
+                  -Headers $headers `
+                  -Method Post `
+                  -Body $refreshPayload `
+                  -ErrorAction Stop
+
+              Write-Host "✅ Data refresh initiated. Refresh ID: $($refreshResponse.requestId)"
           }
+          catch {
+              Write-Host "ℹ️ Could not initiate test refresh: $($_.Exception.Message)"
+          }
+
 
           # -------- Summary --------
           Write-Host ""

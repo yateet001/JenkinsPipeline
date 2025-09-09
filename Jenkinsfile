@@ -32,18 +32,26 @@ pipeline {
       steps {
         powershell(script: '''
           $ErrorActionPreference = "Stop"
+
           # Avoid TLS issues when hitting GitHub/PSGallery on older hosts:
           try { [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 } catch {}
 
-          # Trust PSGallery (first run only)
+          # Trust PSGallery (skip prompts)
           try { Set-PSRepository -Name "PSGallery" -InstallationPolicy Trusted -ErrorAction SilentlyContinue } catch {}
 
+          # Ensure NuGet provider is available (skip confirmation)
+          if (-not (Get-PackageProvider -Name NuGet -ErrorAction SilentlyContinue)) {
+            Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force -Scope CurrentUser
+          }
+
+          # Install Az.Accounts silently if missing
           if (-not (Get-Module -ListAvailable -Name Az.Accounts)) {
-            Install-Module Az.Accounts -Scope CurrentUser -Force -AllowClobber
+            Install-Module Az.Accounts -Scope CurrentUser -Force -AllowClobber -Confirm:$false
           }
         ''')
       }
     }
+
 
     stage('Publish PBIP to Fabric') {
       steps {

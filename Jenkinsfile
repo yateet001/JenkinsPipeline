@@ -127,7 +127,7 @@ pipeline {
               if (!(Test-Path $modelPath)) { throw "model.bim not found at $modelPath" }
 
               $modelJson = (Get-Content -Path $modelPath -Raw) | ConvertFrom-Json
-              $sqlPattern = 'Sql\.Database\s*\(\s*"[^"]*"\s*,\s*"[^"]*"[^)]*\)'
+              $sqlPattern = 'Sql\\.Database\\s*\\(\\s*"[^"]*"\\s*,\\s*"[^"]*"[^)]*\\)'
               $replacement = 'Sql.Database("' + $ServerName + '", "' + $DatabaseName + '")'
               $updatesApplied = 0
 

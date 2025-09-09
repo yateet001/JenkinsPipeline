@@ -229,9 +229,9 @@ pipeline {
     }
   }
 
-  post {
-    always {
-      archiveArtifacts artifacts: 'module/**', onlyIfSuccessful: false
-    }
-  }
-}
+//   post {
+//     always {
+//       archiveArtifacts artifacts: 'module/**', onlyIfSuccessful: false
+//     }
+//   }
+// }

@@ -143,7 +143,9 @@ pipeline {
                           $newExpression += ($line -replace $sqlPattern, $replacement)
                           $hasChanges = $true
                           Write-Host "📝 Updated '$($table.name)' / '$($partition.name)'"
-                        } else { $newExpression += $line }
+                        } else {
+                         $newExpression += $line 
+                        }
                       }
                       if ($hasChanges) { $partition.source.expression = $newExpression; $updatesApplied++ }
                     } elseif ($partition.source.expression -is [string]) {
